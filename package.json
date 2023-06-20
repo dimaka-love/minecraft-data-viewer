@@ -1,0 +1,49 @@
+{
+    "name": "craft-interface",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT",
+    "scripts": {
+        "start": "vite",
+        "build": "vite build"
+    },
+    "dependencies": {
+        "@zardoy/react-util": "^0.2.0",
+        "@zardoy/vit": "^0.1.8",
+        "minecraft-assets": "^1.9.1",
+        "minecraft-data": "^3.36.1",
+        "rambda": "^7.5.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-popper": "^2.3.0",
+        "semver": "^7.5.2",
+        "twin.macro": "^3.3.1",
+        "valtio": "^1.10.5",
+        "vite": "^4.3.9",
+        "vite-plugin-static-copy": "^0.16.0"
+    },
+    "devDependencies": {
+        "@iconify-icons/mdi": "^1.2.8",
+        "@iconify/react": "^3.2.1",
+        "@types/react": "^18.2.13",
+        "@types/react-dom": "^18.2.6",
+        "@types/semver": "^7.5.0",
+        "@zardoy/tsconfig": "^1.5.0",
+        "typescript": "^5.1.3"
+    },
+    "pnpm": {
+        "overrides": {
+            "@vitejs/plugin-react": "^4.0.0"
+        }
+    },
+    "prettier": {
+        "semi": false,
+        "singleQuote": true,
+        "proseWrap": "never",
+        "tabWidth": 4,
+        "trailingComma": "all",
+        "arrowParens": "avoid",
+        "printWidth": 160,
+        "endOfLine": "auto"
+    }
+}
