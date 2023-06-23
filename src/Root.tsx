@@ -1,5 +1,5 @@
-import { ComponentProps, useEffect, useMemo, useRef, useState } from 'react'
-import { blocks, getItemTexture, items, recipes } from './mcData'
+import { CSSProperties, ComponentProps, useEffect, useMemo, useRef, useState } from 'react'
+import { getItemTexture, items, recipes } from './mcData'
 import { proxy, useSnapshot, subscribe } from 'valtio'
 import { usePopper } from 'react-popper'
 import { equals, splitEvery } from 'rambda'
@@ -14,6 +14,11 @@ const slots = proxy({
     blockSlots: [143] as Slot[],
     blockOutput: [] as Slot[],
     inventory: [] as Slot[],
+})
+
+let lastClickEventCoords: { clientX: number; clientY: number }
+const draggingSlot = proxy({
+    slot: undefined as Slot,
 })
 
 subscribe(slots.blockSlots, e => {
@@ -31,8 +36,6 @@ const SLOT_BG = '#616161'
 const SLOT_SIZE = 40
 const isTouchDevice = navigator.maxTouchPoints > 0
 
-let dragActive = false
-
 const allItems = items.map((item): Exclude<Slot, undefined> => {
     return item.id
 })
@@ -49,15 +52,52 @@ const pushItem = (slotType: SlotType, itemId: number) => {
 }
 
 export default () => {
+    const { slot: draggingItem } = useSnapshot(draggingSlot)
+
     const slotsData = useSnapshot(slots)
     const displayView = useSnapshot(currentView)
     const [search, setSearch] = useState('')
     const inputRef = useRef<HTMLInputElement>(null!)
+    const [draggingEl, setDraggingEl] = useState(null as HTMLDivElement | null)
 
     useEffect(() => {
         setSearch('')
         if (displayView.type === 'items-list' && !isTouchDevice) inputRef.current.focus()
     }, [displayView])
+
+    useEffect(() => {
+        const el = draggingEl
+        if (!el) return
+        const controller = new AbortController()
+        document.addEventListener(
+            'pointermove',
+            e => {
+                el.style.left = e.clientX - SLOT_SIZE / 2 + 'px'
+                el.style.top = e.clientY - SLOT_SIZE / 2 + 'px'
+            },
+            {
+                signal: controller.signal,
+            },
+        )
+        document.dispatchEvent(new MouseEvent('pointermove', lastClickEventCoords))
+        setTimeout(() => {
+            document.addEventListener(
+                'pointerdown',
+                e => {
+                    const el = e.target as HTMLDivElement
+                    if (!el) return
+                    const { slotType, slotIndex } = el.dataset
+                    if (!slotType || (slotType as SlotType) === 'blockOutput') return
+                    slots[slotType!][slotIndex!] = draggingSlot.slot
+                    controller.abort()
+                    draggingSlot.slot = undefined
+                },
+                {
+                    signal: controller.signal,
+                },
+            )
+        })
+    }, [draggingEl])
 
     return (
         <div style={{ position: 'fixed', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -131,6 +171,16 @@ export default () => {
                     </>
                 )}
             </div>
+            {draggingItem && (
+                <ItemTexture
+                    itemId={draggingItem}
+                    rootRef={setDraggingEl}
+                    style={{
+                        position: 'fixed',
+                        pointerEvents: 'none',
+                    }}
+                />
+            )}
         </div>
     )
 }
@@ -212,7 +262,6 @@ const Slot = ({ itemId, action }: { itemId: Slot; action?: { drag: { type: SlotT
         modifiers: [{ name: 'arrow', options: { element: arrowElement, padding: 5 } }],
     })
 
-    const [dragging, setDragging] = useState(undefined as undefined | number)
     const { drag: actionDrag } = typeof action === 'object' ? action : { drag: undefined }
 
     const itemData = useMemo(() => {
@@ -228,67 +277,30 @@ const Slot = ({ itemId, action }: { itemId: Slot; action?: { drag: { type: SlotT
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
         >
-            {itemData && hovered && !dragging && (
+            {itemData && hovered && (
                 <div ref={setPopperElement} style={{ ...styles.popper, color: 'white', background: 'black', userSelect: 'text' }} {...attributes.popper}>
                     {itemData.displayName} (#{itemId})
                     <div ref={setArrowElement} style={styles.arrow} />
                 </div>
             )}
-            {(itemId || dragging) && (
+            {itemId && (
                 // todo portal it and remove slot here
                 <div
                     ref={setReferenceElement}
-                    className="item-draggable"
                     style={{
                         width: SLOT_SIZE,
                         height: SLOT_SIZE,
-                        aspectRatio: 1,
-                        // background: 'red',
-                        position: dragging ? 'fixed' : undefined,
-                        pointerEvents: dragging ? 'none' : undefined,
-                        // cursor: dragging ? 'none' : undefined,
                     }}
-                    onPointerDown={({ currentTarget: _currentTarget }) => {
-                        if (dragActive) return
+                    onPointerDown={({ currentTarget: _currentTarget, clientX, clientY }) => {
+                        if (draggingSlot.slot) return
                         if (typeof action === 'function') {
                             action(itemId!)
                             return
                         }
-                        dragActive = true
+                        lastClickEventCoords = { clientX, clientY }
                         const { type, index } = actionDrag!
-                        const oldSlot = slots[type][index]
-                        const el = _currentTarget as HTMLDivElement
-                        const controller = new AbortController()
-                        document.addEventListener(
-                            'pointermove',
-                            e => {
-                                el.style.left = e.clientX - SLOT_SIZE / 2 + 'px'
-                                el.style.top = e.clientY - SLOT_SIZE / 2 + 'px'
-                            },
-                            {
-                                signal: controller.signal,
-                            },
-                        )
-                        setTimeout(() => {
-                            document.addEventListener(
-                                'pointerdown',
-                                e => {
-                                    const el = e.target as HTMLDivElement
-                                    if (!el) return
-                                    const { slotType, slotIndex } = el.dataset
-                                    if (!slotType || (slotType as SlotType) === 'blockOutput') return
-                                    slots[type][index] = undefined
-                                    slots[slotType!][slotIndex!] = oldSlot
-                                    controller.abort()
-                                    setDragging(undefined)
-                                    dragActive = false
-                                },
-                                {
-                                    signal: controller.signal,
-                                },
-                            )
-                        })
-                        setDragging(oldSlot)
+                        draggingSlot.slot = slots[type][index]
+                        slots[type][index] = undefined
                     }}
                 >
                     <ItemTexture itemId={itemId} itemName={itemData?.name} />
@@ -298,7 +310,7 @@ const Slot = ({ itemId, action }: { itemId: Slot; action?: { drag: { type: SlotT
     )
 }
 
-const ItemTexture = ({ itemId, itemName = undefined! as string, style = undefined }) => {
+const ItemTexture = ({ itemId, itemName = undefined! as string, style = undefined as CSSProperties | undefined, rootRef = undefined as any }) => {
     const texturePath = useMemo(() => {
         if (!itemId) return
         return getItemTexture(itemId, itemName ?? getItemDataById(itemId).name)
@@ -306,25 +318,33 @@ const ItemTexture = ({ itemId, itemName = undefined! as string, style = undefine
     if (!itemId) return null
 
     return (
-        <img
-            alt={itemName}
-            draggable="false"
+        <div
+            ref={rootRef}
             style={{
-                width: '100%',
-                height: '100%',
-                imageRendering: 'pixelated',
+                width: SLOT_SIZE,
+                height: SLOT_SIZE,
                 ...(style ?? {}),
-                ...(texturePath?.isBlock
-                    ? {
-                          width: 'calc(100% - 8px)',
-                          height: 'calc(100% - 8px)',
-                          paddingTop: 4,
-                          paddingLeft: 4,
-                          //   border: '2px solid brown',
-                      }
-                    : {}),
             }}
-            src={import.meta.env.VITE_TEXTURES + texturePath?.path}
-        />
+        >
+            <img
+                alt={itemName}
+                draggable="false"
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    imageRendering: 'pixelated',
+                    ...(texturePath?.isBlock
+                        ? {
+                              width: 'calc(100% - 8px)',
+                              height: 'calc(100% - 8px)',
+                              paddingTop: 4,
+                              paddingLeft: 4,
+                              //   border: '2px solid brown',
+                          }
+                        : {}),
+                }}
+                src={import.meta.env.VITE_TEXTURES + texturePath?.path}
+            />
+        </div>
     )
 }

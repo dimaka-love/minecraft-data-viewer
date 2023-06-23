@@ -9,6 +9,7 @@
     },
     "dependencies": {
         "@zardoy/react-util": "^0.2.0",
+        "@zardoy/utils": "^0.0.11",
         "@zardoy/vit": "^0.1.8",
         "minecraft-assets": "^1.9.1",
         "minecraft-data": "^3.36.1",
