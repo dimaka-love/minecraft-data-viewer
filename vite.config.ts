@@ -25,7 +25,7 @@ export default defineConfig((...args) => {
             },
         },
         defineEnv: {
-            VITE_TEXTURES: mode === 'production' ? 'textures/' + texturesVer : texturesPath,
+            VITE_TEXTURES: mode === 'production' ? 'textures/' + texturesVer + '/' : texturesPath,
         },
         // assetsInclude: [texturesPath + 'items/*.png'],
         plugins: [
