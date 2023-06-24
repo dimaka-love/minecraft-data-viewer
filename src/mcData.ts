@@ -9,7 +9,7 @@ import blocksModels from 'mc_textures/blocks_models.json'
 
 export const items = _items as { id: number; name: string; displayName: string; stackSize }[]
 export const blocks = _blocks as Record<string, any>[]
-export const recipes = _recipes as Record<string, { inShape?; ingredients?: number[]; result: { id; count } }[]>
+export const recipes = _recipes as Record<string, { inShape?: (number | null)[][]; ingredients?: number[]; result: { id: number; count: number } }[]>
 
 const blocksNames = blocks.map(block => block.name)
 
